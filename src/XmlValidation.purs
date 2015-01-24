@@ -1,13 +1,16 @@
 module XmlValidation
-  (Result(), Program(), validateProgram)
+  (Result(), (?), Program(), Message(), validateProgram)
   where
 
+import Control.Alt ((<|>))
 import Data.Array (findIndex)
 import Data.Maybe
 import Data.Validation
 import Data.Either
 import Data.Foreign
 import Data.Foreign.Class
+import Data.String (split)
+import Global (readInt)
 
 import Kavi.Xml
 import Kavi.Enums
@@ -63,16 +66,16 @@ infixr 5 ?
 requiredAttr :: forall a. String -> Maybe Xml -> Result String
 requiredAttr name xml = required (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
 
-validateProgram :: Maybe Xml -> Result Program
-validateProgram p = program
+validateProgram' :: Maybe Xml -> Result Program
+validateProgram' p = program
   <$> required (p </=> "TYPE" >>= toLegacyProgramType) ? "Virheellinen attribuutti TYPE"
   <*> required (p </> "ASIAKKAANTUNNISTE")
   <*> required (p </> "ALKUPERAINENNIMI")
   <*> (required (p </=> "TYPE") >>= validateNameFi)
   <*> optional (p </> "RUOTSALAINENNIMI")
   <*> optional (p </> "MUUNIMI")
-  <*> optional (p </> "YEAR")
-  <*> optional (p </> "MAAT" >>= validateCountries) ? "Virheellinen MAAT kenttä"
+  <*> optional ((p </> "JULKAISUVUOSI") <|> (p </> "VALMISTUMISVUOSI") <#> readInt 10)
+  <*> (pure (p </> "MAAT" <#> split " ") >>= validateCountries)
     where
     toLegacyProgramType t | not (t == "05") && isLegacyProgramType t = Just (legacyProgramType t)
     toLegacyProgramType _ = Nothing
@@ -83,9 +86,17 @@ validateProgram p = program
       nameFi = p </> "SUOMALAINENNIMI"
       isAllButTvOrOther = contains ["01","02","03","04","06","07","08","10","11"]
 
-    validateCountries xs = Just [xs]
+    validateCountries :: Maybe [String] -> Result (Maybe [String])
+    validateCountries (Just names) | all isCountryCode names = pure (Just names)
+    validateCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
+    validateCountries Nothing = pure Nothing
+
+all :: forall a. (a -> Boolean) -> [a] -> Boolean
+all f [] = true
+all f (x:xs) = if not $ f x then false else all f xs
 
 contains :: forall a. (Eq a) => [a] -> a -> Boolean
 contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true
 
---validate :: Xml -> [Result Program]
+validateProgram :: Xml -> Result Program
+validateProgram xml = validateProgram' (Just xml)

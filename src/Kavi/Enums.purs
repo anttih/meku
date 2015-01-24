@@ -9,17 +9,24 @@ type ProgramType = Number
 
 foreign import legacyProgramType
   """
-  var programTypes = require('shared/enums').programTypes;
+  var programTypes = require('shared/enums').legacyProgramTypes;
   function legacyProgramType(type) {
-    programTypes[type];
+    legacyProgramTypes[type];
   }
   """ :: String -> ProgramType
 
 foreign import isLegacyProgramType
   """
-  var programTypes = require('shared/enums').programTypes;
+  var legacyProgramTypes = require('shared/enums').legacyProgramTypes;
   function isLegacyProgramType(type) {
-    return programTypes[type] === undefined ? false : true;
+    return legacyProgramTypes[type] === undefined ? false : true;
   }
   """ :: String -> Boolean
 
+foreign import isCountryCode
+  """
+  var countries = require('shared/enums').countries;
+  function isCountryCode(code) {
+    return countries[code] !== undefined;
+  }
+  """ :: String -> Boolean

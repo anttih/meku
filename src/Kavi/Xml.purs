@@ -27,15 +27,21 @@ foreign import xmlAttr
 
 -- Access element value
 infixl 5 </>
-(</>) :: forall a. (IsForeign a) => Maybe Xml -> String -> Maybe a
+(</>) :: Maybe Xml -> String -> Maybe String
 (</>) doc field = do
   xml <- doc
   either (const Nothing) Just $ read (xmlElement xml field)
 
 -- Access attribute value
 infixl 5 </=>
-(</=>) :: forall a. (IsForeign a) => Maybe Xml -> String -> Maybe a
+(</=>) :: Maybe Xml -> String -> Maybe String
 (</=>) doc attr = do
   xml <- doc
   either (const Nothing) Just $ read (xmlAttr xml attr)
 
+foreign import testDoc
+  """
+  var testDoc = {
+    "JULKAISUVUOSI": {$text: "2007"}
+  };
+  """ :: Xml
