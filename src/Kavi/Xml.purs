@@ -7,6 +7,15 @@ import Data.Foreign.Class
 
 foreign import data Xml :: *
 
+-- Using the Free monad
+--
+-- data XmlM a
+--   = Node (XmlM a)
+--   | Element (XmlM a)
+--   | Empty a
+-- 
+-- type Xml = XmlM Unit
+
 foreign import xmlElement
   """
   function xmlElement(xml) {
@@ -25,6 +34,23 @@ foreign import xmlAttr
   }
   """ :: Xml -> String -> Foreign
 
+
+foreign import xmlChildren
+  """
+  function xmlChildren(name) {
+    return function (xml) {
+      return xml.$children.filter(function(e) { return e.$name == name })
+    }
+  }
+  """ :: String -> Xml -> [Xml]
+
+foreign import textContent'
+  """
+  function textContent$prime(xml) {
+    return xml.$text; 
+  }
+  """ :: Xml -> Foreign
+
 -- Access element value
 infixl 5 </>
 (</>) :: Maybe Xml -> String -> Maybe String
@@ -38,6 +64,15 @@ infixl 5 </=>
 (</=>) doc attr = do
   xml <- doc
   either (const Nothing) Just $ read (xmlAttr xml attr)
+
+-- Get children
+infixl 5 </*>
+(</*>) :: Maybe Xml -> String -> [Xml]
+(</*>) (Just xml) field = xmlChildren field xml
+(</*>) Nothing _ = []
+
+textContent :: Xml -> Maybe String
+textContent xml = either (const Nothing) Just $ read (textContent' xml)
 
 foreign import testDoc
   """

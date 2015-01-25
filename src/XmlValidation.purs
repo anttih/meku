@@ -3,6 +3,7 @@ module XmlValidation
   where
 
 import Control.Alt ((<|>))
+import Control.Plus
 import Data.Array (findIndex)
 import Data.Maybe
 import Data.Validation
@@ -24,6 +25,7 @@ type Program =
   , nameOther :: Maybe String
   , year :: Maybe Number
   , countries :: Maybe [String]
+  , productionCompanies :: [String]
   }
 
 program :: ProgramType
@@ -34,8 +36,9 @@ program :: ProgramType
         -> Maybe String
         -> Maybe Number
         -> Maybe [String]
+        -> [String]
         -> Program
-program programType externalId name nameFi nameSv nameOther year countries =
+program programType externalId name nameFi nameSv nameOther year countries companies =
   { programType: programType
   , externalId: externalId
   , name: name
@@ -44,6 +47,7 @@ program programType externalId name nameFi nameSv nameOther year countries =
   , nameOther: nameOther
   , year: year
   , countries: countries
+  , productionCompanies: companies
   }
 
 type Message = String
@@ -75,7 +79,8 @@ validateProgram' p = program
   <*> optional (p </> "RUOTSALAINENNIMI")
   <*> optional (p </> "MUUNIMI")
   <*> optional ((p </> "JULKAISUVUOSI") <|> (p </> "VALMISTUMISVUOSI") <#> readInt 10)
-  <*> (pure (p </> "MAAT" <#> split " ") >>= validateCountries)
+  <*> validCountries (p </> "MAAT" <#> split " ")
+  <*> pure (mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent)
     where
     toLegacyProgramType t | not (t == "05") && isLegacyProgramType t = Just (legacyProgramType t)
     toLegacyProgramType _ = Nothing
@@ -86,14 +91,18 @@ validateProgram' p = program
       nameFi = p </> "SUOMALAINENNIMI"
       isAllButTvOrOther = contains ["01","02","03","04","06","07","08","10","11"]
 
-    validateCountries :: Maybe [String] -> Result (Maybe [String])
-    validateCountries (Just names) | all isCountryCode names = pure (Just names)
-    validateCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
-    validateCountries Nothing = pure Nothing
+    validCountries :: Maybe [String] -> Result (Maybe [String])
+    validCountries (Just names) | all isCountryCode names = pure (Just names)
+    validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
+    validCountries Nothing = pure Nothing
 
 all :: forall a. (a -> Boolean) -> [a] -> Boolean
-all f [] = true
-all f (x:xs) = if not $ f x then false else all f xs
+all f []           = true
+all f (x:xs) | f x = all f xs
+all f _            = false
+
+mcatMaybes :: forall m a. (Monad m, Plus m) => m (Maybe a) -> m a
+mcatMaybes m = m >>= maybe empty return
 
 contains :: forall a. (Eq a) => [a] -> a -> Boolean
 contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true
