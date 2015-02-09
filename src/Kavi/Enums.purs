@@ -11,7 +11,7 @@ foreign import legacyProgramType
   """
   var programTypes = require('shared/enums').legacyProgramTypes;
   function legacyProgramType(type) {
-    legacyProgramTypes[type];
+    return legacyProgramTypes[type];
   }
   """ :: String -> ProgramType
 

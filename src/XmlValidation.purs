@@ -1,8 +1,9 @@
 module XmlValidation
-  (Result(), (?), Program(), Message(), validateProgram)
+  (Result(), (?), Program(), Classification(), Message(), validateProgram)
   where
 
 import Control.Alt ((<|>))
+import Control.Apply ((*>))
 import Control.Plus
 import Data.Array (findIndex)
 import Data.Maybe
@@ -11,6 +12,7 @@ import Data.Either
 import Data.Foreign
 import Data.Foreign.Class
 import Data.String (split)
+import Data.String.Regex (regex, test)
 import Global (readInt)
 
 import Kavi.Xml
@@ -26,28 +28,33 @@ type Program =
   , year :: Maybe Number
   , countries :: Maybe [String]
   , productionCompanies :: [String]
+  , synopsis :: String
+  , season :: Maybe String
+  , classification :: Classification
   }
 
-program :: ProgramType
-        -> String
-        -> String
-        -> Maybe String
-        -> Maybe String
-        -> Maybe String
-        -> Maybe Number
-        -> Maybe [String]
-        -> [String]
-        -> Program
-program programType externalId name nameFi nameSv nameOther year countries companies =
-  { programType: programType
-  , externalId: externalId
-  , name: name
-  , nameFi: nameFi
-  , nameSv: nameSv
-  , nameOther: nameOther
-  , year: year
-  , countries: countries
-  , productionCompanies: companies
+program = 
+  { programType: _
+  , externalId: _
+  , name: _
+  , nameFi: _
+  , nameSv: _
+  , nameOther: _
+  , year: _
+  , countries: _
+  , productionCompanies: _
+  , synopsis: _
+  , season: _
+  , classification: _
+  }
+
+type Classification = 
+  { duration :: String
+  }
+
+classification :: String -> Classification
+classification duration =
+  { duration: duration
   }
 
 type Message = String
@@ -67,21 +74,29 @@ infixr 5 ?
 (?) :: forall a. Result a -> Message -> Result a
 (?) res msg = runV (\errors -> invalid (errors <> [msg])) pure res
 
-requiredAttr :: forall a. String -> Maybe Xml -> Result String
-requiredAttr name xml = required (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
+requiredAttr :: forall a. Maybe Xml -> String -> Result String
+requiredAttr xml name = required (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
+
+requiredElement :: Maybe Xml -> String -> Result String
+requiredElement p field = required (p </> field) ? "Pakollinen elementti " ++ field ++ " puuttuu"
 
 validateProgram' :: Maybe Xml -> Result Program
 validateProgram' p = program
-  <$> required (p </=> "TYPE" >>= toLegacyProgramType) ? "Virheellinen attribuutti TYPE"
-  <*> required (p </> "ASIAKKAANTUNNISTE")
-  <*> required (p </> "ALKUPERAINENNIMI")
-  <*> (required (p </=> "TYPE") >>= validateNameFi)
+  <$> (requiredType *> required (p </=> "TYPE" >>= toLegacyProgramType) ? "Virheellinen attribuutti TYPE")
+  <*> p `requiredElement` "ASIAKKAANTUNNISTE"
+  <*> p `requiredElement` "ALKUPERAINENNIMI"
+  <*> (requiredType >>= validateNameFi)
   <*> optional (p </> "RUOTSALAINENNIMI")
   <*> optional (p </> "MUUNIMI")
   <*> optional ((p </> "JULKAISUVUOSI") <|> (p </> "VALMISTUMISVUOSI") <#> readInt 10)
   <*> validCountries (p </> "MAAT" <#> split " ")
   <*> pure (mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent)
+  <*> required (p </> "SYNOPSIS")
+  <*> (requiredType >>= validSeason)
+  <*> (required (p <//> "LUOKITTELU") *> validClassification (p <//> "LUOKITTELU"))
     where
+    requiredType = p `requiredAttr` "TYPE"
+
     toLegacyProgramType t | not (t == "05") && isLegacyProgramType t = Just (legacyProgramType t)
     toLegacyProgramType _ = Nothing
 
@@ -95,6 +110,21 @@ validateProgram' p = program
     validCountries (Just names) | all isCountryCode names = pure (Just names)
     validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
     validCountries Nothing = pure Nothing
+
+    validSeason :: String -> Result (Maybe String)
+    validSeason t | t == "03" = isValidSeason $ p </> "TUOTANTOKAUSI"
+      where
+      isValidSeason Nothing = pure Nothing
+      isValidSeason (Just t) | onlyNumbers t = pure (Just t)
+      isValidSeason (Just t) | otherwise = invalid ["Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"]
+
+
+validClassification :: Maybe Xml -> Result Classification
+validClassification xml = classification
+  <$> required (xml </> "KESTO")
+
+onlyNumbers :: String -> Boolean
+onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: true}
 
 all :: forall a. (a -> Boolean) -> [a] -> Boolean
 all f []           = true

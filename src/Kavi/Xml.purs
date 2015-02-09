@@ -7,20 +7,31 @@ import Data.Foreign.Class
 
 foreign import data Xml :: *
 
--- Using the Free monad
---
--- data XmlM a
---   = Node (XmlM a)
---   | Element (XmlM a)
---   | Empty a
--- 
--- type Xml = XmlM Unit
+instance isForeignXml :: IsForeign Xml where
+  read x | isXml x = pure $ unsafeFromForeign x
+  read _ = Left (TypeMismatch "Xml" "not and XML node")
+
+foreign import isXml
+  """
+  function isXml(xml) {
+    return xml.$name !== undefined;
+  }
+  """ :: Foreign -> Boolean
+
+foreign import xmlElementText
+  """
+  function xmlElementText(xml) {
+    return function (field) {
+      return xml[field] ? xml[field].$text : undefined;
+    };
+  }
+  """ :: Xml -> String -> Foreign
 
 foreign import xmlElement
   """
   function xmlElement(xml) {
     return function (field) {
-      return xml[field] ? xml[field].$text : undefined;
+      return xml[field];
     };
   }
   """ :: Xml -> String -> Foreign
@@ -33,7 +44,6 @@ foreign import xmlAttr
     };
   }
   """ :: Xml -> String -> Foreign
-
 
 foreign import xmlChildren
   """
@@ -56,7 +66,7 @@ infixl 5 </>
 (</>) :: Maybe Xml -> String -> Maybe String
 (</>) doc field = do
   xml <- doc
-  either (const Nothing) Just $ read (xmlElement xml field)
+  either (const Nothing) Just $ read (xmlElementText xml field)
 
 -- Access attribute value
 infixl 5 </=>
@@ -70,6 +80,12 @@ infixl 5 </*>
 (</*>) :: Maybe Xml -> String -> [Xml]
 (</*>) (Just xml) field = xmlChildren field xml
 (</*>) Nothing _ = []
+
+infixl 5 <//>
+(<//>) :: Maybe Xml -> String -> Maybe Xml
+(<//>) doc field = do
+  xml <- doc
+  either (const Nothing) Just $ read (xmlElement xml field)
 
 textContent :: Xml -> Maybe String
 textContent xml = either (const Nothing) Just $ read (textContent' xml)
