@@ -1,0 +1,16 @@
+{
+  "name": "Meku",
+  "description": "",
+  "version": "0.1.0",
+  "keywords": [],
+  "dependencies": {
+    "purescript-control": "*",
+    "purescript-foreign": "*",
+    "purescript-either": "*",
+    "purescript-maybe": "*",
+    "purescript-validation": "*",
+    "purescript-arrays": "*",
+    "purescript-strings": "*",
+    "purescript-globals": "*"
+  }
+}
