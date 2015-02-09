@@ -97,7 +97,7 @@ validateProgram' p = program
     where
     requiredType = p `requiredAttr` "TYPE"
 
-    toLegacyProgramType t | not (t == "05") && isLegacyProgramType t = Just (legacyProgramType t)
+    toLegacyProgramType t | not (t == "05") && isLegacyProgramType t = Just $ legacyProgramType t
     toLegacyProgramType _ = Nothing
 
     validateNameFi :: String -> Result (Maybe String)
