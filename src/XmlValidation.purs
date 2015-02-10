@@ -1,6 +1,11 @@
 module XmlValidation
-  (Result(), (?), Program(), Classification(), Message(), validateProgram)
-  where
+  ( Result()
+  , (?)
+  , Program()
+  , Classification()
+  , Message()
+  , validateProgram
+  ) where
 
 import Control.Alt ((<|>))
 import Control.Apply ((*>))
@@ -30,6 +35,7 @@ type Program =
   , productionCompanies :: [String]
   , synopsis :: String
   , season :: Maybe String
+  , episode :: Maybe String
   , classification :: Classification
   }
 
@@ -45,16 +51,12 @@ program =
   , productionCompanies: _
   , synopsis: _
   , season: _
+  , episode: _
   , classification: _
   }
 
 type Classification = 
   { duration :: String
-  }
-
-classification :: String -> Classification
-classification duration =
-  { duration: duration
   }
 
 type Message = String
@@ -93,6 +95,7 @@ validateProgram' p = program
   <*> pure (mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent)
   <*> required (p </> "SYNOPSIS")
   <*> (requiredType >>= validSeason)
+  <*> (requiredType >>= validEpisode)
   <*> (required (p <//> "LUOKITTELU") *> validClassification (p <//> "LUOKITTELU"))
     where
     requiredType = p `requiredAttr` "TYPE"
@@ -116,12 +119,23 @@ validateProgram' p = program
       where
       isValidSeason Nothing = pure Nothing
       isValidSeason (Just t) | onlyNumbers t = pure (Just t)
-      isValidSeason (Just t) | otherwise = invalid ["Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"]
+      isValidSeason (Just t) = invalid ["Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"]
+    validSeason _ = pure Nothing
+
+    validEpisode :: String -> Result (Maybe String)
+    validEpisode t | t == "03" = do
+      episode <- p `requiredElement` "OSA"
+      Just <$> isFormat onlyNumbers episode ? "Virheellinen kenttä: OSA pitää olla numero"
+    validEpisode _ = pure Nothing
 
 
 validClassification :: Maybe Xml -> Result Classification
-validClassification xml = classification
-  <$> required (xml </> "KESTO")
+validClassification xml =
+  { duration: _ } <$> required (xml </> "KESTO")
+
+isFormat :: forall a. (a -> Boolean) -> a -> Result a
+isFormat f v | f v = pure v
+isFormat _ _ = invalid ["Virheellinen kentän formaatti"]
 
 onlyNumbers :: String -> Boolean
 onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: true}
