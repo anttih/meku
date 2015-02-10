@@ -36,6 +36,7 @@ type Program =
   , synopsis :: String
   , season :: Maybe String
   , episode :: Maybe String
+  , parentTvSeriesName :: Maybe String
   , classification :: Classification
   }
 
@@ -52,6 +53,7 @@ program =
   , synopsis: _
   , season: _
   , episode: _
+  , parentTvSeriesName: _
   , classification: _
   }
 
@@ -94,8 +96,17 @@ validateProgram' p = program
   <*> validCountries (p </> "MAAT" <#> split " ")
   <*> pure (mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent)
   <*> required (p </> "SYNOPSIS")
-  <*> (requiredType >>= validSeason)
-  <*> (requiredType >>= validEpisode)
+  <*> (requiredType >>= \v -> case v of
+      "03" -> isMaybeFormat onlyNumbers (p </> "TUOTANTOKAUSI") ? "Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"
+      _ -> pure Nothing
+      )
+  <*> (requiredType >>= \v -> case v of
+      "03" -> do
+        episode <- p `requiredElement` "OSA"
+        Just <$> isFormat onlyNumbers episode ? "Virheellinen kenttä: OSA pitää olla numero"
+      _ -> pure Nothing
+      )
+  <*> (requiredType >>= \t -> if t == "03" then p `requiredElement` "ISANTAOHJELMA" <#> Just else pure Nothing)
   <*> (required (p <//> "LUOKITTELU") *> validClassification (p <//> "LUOKITTELU"))
     where
     requiredType = p `requiredAttr` "TYPE"
@@ -114,21 +125,6 @@ validateProgram' p = program
     validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
     validCountries Nothing = pure Nothing
 
-    validSeason :: String -> Result (Maybe String)
-    validSeason t | t == "03" = isValidSeason $ p </> "TUOTANTOKAUSI"
-      where
-      isValidSeason Nothing = pure Nothing
-      isValidSeason (Just t) | onlyNumbers t = pure (Just t)
-      isValidSeason (Just t) = invalid ["Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"]
-    validSeason _ = pure Nothing
-
-    validEpisode :: String -> Result (Maybe String)
-    validEpisode t | t == "03" = do
-      episode <- p `requiredElement` "OSA"
-      Just <$> isFormat onlyNumbers episode ? "Virheellinen kenttä: OSA pitää olla numero"
-    validEpisode _ = pure Nothing
-
-
 validClassification :: Maybe Xml -> Result Classification
 validClassification xml =
   { duration: _ } <$> required (xml </> "KESTO")
@@ -136,6 +132,11 @@ validClassification xml =
 isFormat :: forall a. (a -> Boolean) -> a -> Result a
 isFormat f v | f v = pure v
 isFormat _ _ = invalid ["Virheellinen kentän formaatti"]
+
+isMaybeFormat :: forall a. (a -> Boolean) -> Maybe a -> Result (Maybe a)
+isMaybeFormat f (Just v) | f v = pure (Just v)
+isMaybeFormat f (Just v) = invalid ["Virheellinen kentän formaatti"]
+isMaybeFormat f Nothing = pure Nothing
 
 onlyNumbers :: String -> Boolean
 onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: true}
