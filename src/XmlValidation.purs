@@ -39,6 +39,7 @@ type Program =
   , episode :: Maybe String
   , parentTvSeriesName :: Maybe String
   , legacyGenre :: [String]
+  , directors :: [String]
   , classification :: Classification
   }
 
@@ -57,6 +58,7 @@ program =
   , episode: _
   , parentTvSeriesName: _
   , legacyGenre: _
+  , directors: _
   , classification: _
   }
 
@@ -111,6 +113,7 @@ validateProgram' p = program
       )
   <*> (requiredType >>= \t -> if t == "03" then p `requiredElement` "ISANTAOHJELMA" <#> Just else pure Nothing)
   <*> pure (toArray (p </> "LAJIT") <> toArray (p </> "TELEVISIO-OHJELMALAJIT") <> toArray (p </> "PELINLAJIT"))
+  <*> pure (mcatMaybes (p </*> "OHJAAJA" <#> fullname))
   <*> (required (p <//> "LUOKITTELU") *> validClassification (p <//> "LUOKITTELU"))
     where
     requiredType = p `requiredAttr` "TYPE"
@@ -128,6 +131,12 @@ validateProgram' p = program
     validCountries (Just names) | all isCountryCode names = pure (Just names)
     validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
     validCountries Nothing = pure Nothing
+
+    fullname :: Xml -> Maybe String
+    fullname xml = do
+      firstname <- Just xml </> "ETUNIMI"
+      lastname <- Just xml </> "SUKUNIMI"
+      return $ firstname ++ " " ++ lastname
 
 validClassification :: Maybe Xml -> Result Classification
 validClassification xml =
