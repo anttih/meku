@@ -118,7 +118,7 @@ validateProgram' p = program
   <*> pure (toArray (p </> "LAJIT") <> toArray (p </> "TELEVISIO-OHJELMALAJIT") <> toArray (p </> "PELINLAJIT"))
   <*> pure (mcatMaybes (p </*> "OHJAAJA" <#> fullname))
   <*> pure (mcatMaybes (p </*> "NAYTTELIJA" <#> fullname))
-  <*> (required (p <//> "LUOKITTELU") *> validClassification p (p <//> "LUOKITTELU"))
+  <*> (required (p <//> "LUOKITTELU") *> classification)
     where
     requiredType = p `requiredAttr` "TYPE"
 
@@ -142,11 +142,11 @@ validateProgram' p = program
       lastname <- Just xml </> "SUKUNIMI"
       return $ firstname ++ " " ++ lastname
 
-validClassification :: Maybe Xml -> Maybe Xml -> Result Classification
-validClassification p xml =
-  { duration: _, author: _ }
-  <$> required (xml </> "KESTO")
-  <*> p `requiredElement` "LUOKITTELIJA"
+    classification :: Result Classification
+    classification = { duration: _, author: _ }
+      <$> required (c </> "KESTO")
+      <*> p `requiredElement` "LUOKITTELIJA"
+        where c = p <//> "LUOKITTELU"
 
 isFormat :: forall a. (a -> Boolean) -> a -> Result a
 isFormat f v | f v = pure v
