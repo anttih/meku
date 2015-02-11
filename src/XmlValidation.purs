@@ -40,6 +40,7 @@ type Program =
   , parentTvSeriesName :: Maybe String
   , legacyGenre :: [String]
   , directors :: [String]
+  , actors :: [String]
   , classification :: Classification
   }
 
@@ -59,6 +60,7 @@ program =
   , parentTvSeriesName: _
   , legacyGenre: _
   , directors: _
+  , actors: _
   , classification: _
   }
 
@@ -114,6 +116,7 @@ validateProgram' p = program
   <*> (requiredType >>= \t -> if t == "03" then p `requiredElement` "ISANTAOHJELMA" <#> Just else pure Nothing)
   <*> pure (toArray (p </> "LAJIT") <> toArray (p </> "TELEVISIO-OHJELMALAJIT") <> toArray (p </> "PELINLAJIT"))
   <*> pure (mcatMaybes (p </*> "OHJAAJA" <#> fullname))
+  <*> pure (mcatMaybes (p </*> "NAYTTELIJA" <#> fullname))
   <*> (required (p <//> "LUOKITTELU") *> validClassification (p <//> "LUOKITTELU"))
     where
     requiredType = p `requiredAttr` "TYPE"
