@@ -37,6 +37,7 @@ type Program =
   , season :: Maybe String
   , episode :: Maybe String
   , parentTvSeriesName :: Maybe String
+  , legacyGenre :: [String]
   , classification :: Classification
   }
 
@@ -54,6 +55,7 @@ program =
   , season: _
   , episode: _
   , parentTvSeriesName: _
+  , legacyGenre: _
   , classification: _
   }
 
@@ -107,6 +109,7 @@ validateProgram' p = program
       _ -> pure Nothing
       )
   <*> (requiredType >>= \t -> if t == "03" then p `requiredElement` "ISANTAOHJELMA" <#> Just else pure Nothing)
+  <*> pure (toArray (p </> "LAJIT") <> toArray (p </> "TELEVISIO-OHJELMALAJIT") <> toArray (p </> "PELINLAJIT"))
   <*> (required (p <//> "LUOKITTELU") *> validClassification (p <//> "LUOKITTELU"))
     where
     requiredType = p `requiredAttr` "TYPE"
@@ -151,6 +154,10 @@ mcatMaybes m = m >>= maybe empty return
 
 contains :: forall a. (Eq a) => [a] -> a -> Boolean
 contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true
+
+toArray :: Maybe String -> [String]
+toArray Nothing = []
+toArray (Just s) = split " " s
 
 validateProgram :: Xml -> Result Program
 validateProgram xml = validateProgram' (Just xml)
