@@ -10,6 +10,7 @@ module XmlValidation
 import Control.Alt ((<|>))
 import Control.Apply ((*>))
 import Control.Plus
+import Control.MonadPlus.Partial (mcatMaybes)
 import Data.Array (findIndex)
 import Data.Maybe
 import Data.Validation
@@ -148,9 +149,6 @@ all :: forall a. (a -> Boolean) -> [a] -> Boolean
 all f []           = true
 all f (x:xs) | f x = all f xs
 all f _            = false
-
-mcatMaybes :: forall m a. (Monad m, Plus m) => m (Maybe a) -> m a
-mcatMaybes m = m >>= maybe empty return
 
 contains :: forall a. (Eq a) => [a] -> a -> Boolean
 contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true

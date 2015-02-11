@@ -11,6 +11,7 @@
     "purescript-validation": "*",
     "purescript-arrays": "*",
     "purescript-strings": "*",
-    "purescript-globals": "*"
+    "purescript-globals": "*",
+    "purescript-monadplus-partial": "0.1.0"
   }
 }
