@@ -164,7 +164,7 @@ isMaybeFormat f (Just v) = invalid ["Virheellinen kentän formaatti"]
 isMaybeFormat f Nothing = pure Nothing
 
 onlyNumbers :: String -> Boolean
-onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: true}
+onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: false}
 
 all :: forall a. (a -> Boolean) -> [a] -> Boolean
 all f []           = true
