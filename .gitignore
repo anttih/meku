@@ -3,3 +3,6 @@ node_modules/
 *.iml
 /tables/
 scripts/data.staging.js
+.psci_modules
+bower_components
+output
