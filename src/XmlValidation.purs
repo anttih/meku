@@ -5,11 +5,13 @@ module XmlValidation
   , Classification()
   , Message()
   , validateProgram
+  , lajit
   ) where
 
 import Control.Alt ((<|>))
 import Control.Apply ((*>))
 import Control.Plus
+import Control.Monad (foldM)
 import Control.MonadPlus.Partial (mcatMaybes)
 import Data.Array (findIndex)
 import Data.Maybe
@@ -20,6 +22,8 @@ import Data.Foreign.Class
 import Data.String (split)
 import Data.String.Regex (regex, test)
 import Global (readInt)
+
+import Data.Foreign
 
 import Kavi.Xml
 import Kavi.Enums
@@ -75,6 +79,8 @@ type Result a = V [Message] a
 instance bindV :: (Semigroup err) => Bind (V err) where
   (>>=) m f = runV invalid (($) f) m
 
+instance monadV :: (Semigroup err) => Monad (V err)
+
 required :: forall a. Maybe a -> Result a
 required Nothing  = invalid []
 required (Just v) = pure v
@@ -122,7 +128,7 @@ validateProgram' p = program
     where
     requiredType = p `requiredAttr` "TYPE"
 
-    toLegacyProgramType t | not (t == "05") && isLegacyProgramType t = Just $ legacyProgramType t
+    toLegacyProgramType t | not (t == "05") = either (const Nothing) Just $ legacyProgramType t
     toLegacyProgramType _ = Nothing
 
     validateNameFi :: String -> Result (Maybe String)
@@ -171,6 +177,13 @@ contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true
 toArray :: Maybe String -> [String]
 toArray Nothing = []
 toArray (Just s) = split " " s
+
+lajit :: Maybe String -> Result [LegacyGenre]
+lajit Nothing = pure []
+lajit (Just s) = foldM f [] $ legacyGenre <$> split " " s where
+  f :: [LegacyGenre] -> F LegacyGenre -> Result [LegacyGenre]
+  f xs = either fail $ pure <<< (: xs)
+    where fail (TypeMismatch _ err) = invalid [err]
 
 validateProgram :: Xml -> Result Program
 validateProgram xml = validateProgram' (Just xml)
