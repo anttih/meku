@@ -1,4 +1,12 @@
-module Kavi.Enums where
+module Kavi.Enums
+  ( ProgramType(..)
+  , LegacyGenre(..)
+  , legacyProgramType
+  , legacyGenre
+  , legacyGameGenre
+  , legacyTvGenre
+  , isCountryCode
+  ) where
 
 import Data.Foreign
 import Data.Foreign.Class
