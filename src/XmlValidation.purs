@@ -190,10 +190,7 @@ validateProgram' p = program
 
 genre :: (String -> F E.LegacyGenre) -> Maybe String -> Result [E.LegacyGenre]
 genre _ Nothing = pure []
-genre f (Just s) = sequence $ (f' <<< f) <$> split " " s
-  where
-  f' = either fail pure
-    where fail (TypeMismatch _ _) = invalid []
+genre f (Just s) = sequence $ either (const fail) pure <<< f <$> split " " s
 
 fullname :: Xml -> Maybe String
 fullname xml = do
@@ -203,11 +200,11 @@ fullname xml = do
 
 isFormat :: forall a. (a -> Boolean) -> a -> Result a
 isFormat f v | f v = pure v
-isFormat _ _ = invalid ["Virheellinen kentän formaatti"]
+isFormat _ _ = fail ? "Virheellinen kentän formaatti"
 
 isMaybeFormat :: forall a. (a -> Boolean) -> Maybe a -> Result (Maybe a)
 isMaybeFormat f (Just v) | f v = pure (Just v)
-isMaybeFormat f (Just v) = invalid ["Virheellinen kentän formaatti"]
+isMaybeFormat f (Just v) = fail ? "Virheellinen kentän formaatti"
 isMaybeFormat f Nothing = pure Nothing
 
 onlyNumbers :: String -> Boolean
