@@ -5,13 +5,11 @@ module XmlValidation
   , Classification()
   , Message()
   , validateProgram
-  , lajit
   ) where
 
 import Control.Alt ((<|>))
 import Control.Apply ((*>))
 import Control.Plus
-import Control.Monad (foldM)
 import Control.MonadPlus.Partial (mcatMaybes)
 import Data.Array (findIndex)
 import Data.Maybe
@@ -21,15 +19,16 @@ import Data.Foreign
 import Data.Foreign.Class
 import Data.String (split)
 import Data.String.Regex (regex, test)
+import Data.Traversable (sequence)
 import Global (readInt)
 
 import Data.Foreign
 
 import Kavi.Xml
-import Kavi.Enums
+import qualified Kavi.Enums as E
 
 type Program =
-  { programType :: ProgramType
+  { programType :: E.ProgramType
   , externalId :: String
   , name :: String
   , nameFi :: Maybe String
@@ -42,7 +41,7 @@ type Program =
   , season :: Maybe String
   , episode :: Maybe String
   , parentTvSeriesName :: Maybe String
-  , legacyGenre :: [String]
+  , legacyGenre :: [E.LegacyGenre]
   , directors :: [String]
   , actors :: [String]
   , classification :: Classification
@@ -76,11 +75,6 @@ type Classification =
 type Message = String
 type Result a = V [Message] a
 
-instance bindV :: (Semigroup err) => Bind (V err) where
-  (>>=) m f = runV invalid (($) f) m
-
-instance monadV :: (Semigroup err) => Monad (V err)
-
 required :: forall a. Maybe a -> Result a
 required Nothing  = invalid []
 required (Just v) = pure v
@@ -88,9 +82,13 @@ required (Just v) = pure v
 optional :: forall a. Maybe a -> Result (Maybe a)
 optional = pure
 
+fail :: forall a. Result a
+fail = invalid []
+
+-- | Replaces all accumulated errors with one error
 infixr 5 ?
 (?) :: forall a. Result a -> Message -> Result a
-(?) res msg = runV (\errors -> invalid (errors <> [msg])) pure res
+(?) res msg = runV (\_ -> invalid [msg]) pure res
 
 requiredAttr :: forall a. Maybe Xml -> String -> Result String
 requiredAttr xml name = required (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
@@ -100,59 +98,108 @@ requiredElement p field = required (p </> field) ? "Pakollinen elementti " ++ fi
 
 validateProgram' :: Maybe Xml -> Result Program
 validateProgram' p = program
-  <$> (requiredType *> required (p </=> "TYPE" >>= toLegacyProgramType) ? "Virheellinen attribuutti TYPE")
-  <*> p `requiredElement` "ASIAKKAANTUNNISTE"
-  <*> p `requiredElement` "ALKUPERAINENNIMI"
-  <*> (requiredType >>= validateNameFi)
-  <*> optional (p </> "RUOTSALAINENNIMI")
-  <*> optional (p </> "MUUNIMI")
-  <*> optional ((p </> "JULKAISUVUOSI") <|> (p </> "VALMISTUMISVUOSI") <#> readInt 10)
-  <*> validCountries (p </> "MAAT" <#> split " ")
-  <*> pure (mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent)
-  <*> required (p </> "SYNOPSIS")
-  <*> (requiredType >>= \v -> case v of
-      "03" -> isMaybeFormat onlyNumbers (p </> "TUOTANTOKAUSI") ? "Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"
-      _ -> pure Nothing
-      )
-  <*> (requiredType >>= \v -> case v of
-      "03" -> do
-        episode <- p `requiredElement` "OSA"
-        Just <$> isFormat onlyNumbers episode ? "Virheellinen kenttä: OSA pitää olla numero"
-      _ -> pure Nothing
-      )
-  <*> (requiredType >>= \t -> if t == "03" then p `requiredElement` "ISANTAOHJELMA" <#> Just else pure Nothing)
-  <*> pure (toArray (p </> "LAJIT") <> toArray (p </> "TELEVISIO-OHJELMALAJIT") <> toArray (p </> "PELINLAJIT"))
-  <*> pure (mcatMaybes (p </*> "OHJAAJA" <#> fullname))
-  <*> pure (mcatMaybes (p </*> "NAYTTELIJA" <#> fullname))
+  <$> (requiredType *> legacyProgramType)
+  <*> externalId
+  <*> name
+  <*> (requiredType *> nameFi)
+  <*> optional nameSv
+  <*> optional nameOther
+  <*> optional year
+  <*> countries
+  <*> productionCompanies
+  <*> required synopsis
+  <*> (requiredType *> season)
+  <*> (requiredType *> episode)
+  <*> (requiredType *> parentTvSeriesName)
+  <*> legacyGenre
+  <*> directors
+  <*> actors
   <*> (required (p <//> "LUOKITTELU") *> classification)
     where
+    typeAttr = p </=> "TYPE"
     requiredType = p `requiredAttr` "TYPE"
+    externalId = p `requiredElement` "ASIAKKAANTUNNISTE"
+    name = p `requiredElement` "ALKUPERAINENNIMI"
+    nameSv = p </> "RUOTSALAINENNIMI"
+    nameOther = p </> "MUUNIMI"
+    year = (p </> "JULKAISUVUOSI") <|> (p </> "VALMISTUMISVUOSI") <#> readInt 10
 
-    toLegacyProgramType t | not (t == "05") = either (const Nothing) Just $ legacyProgramType t
-    toLegacyProgramType _ = Nothing
-
-    validateNameFi :: String -> Result (Maybe String)
-    validateNameFi t = if isAllButTvOrOther t then (Just <$> required nameFi) else optional nameFi
+    countries = validCountries (p </> "MAAT" <#> split " ")
       where
-      nameFi = p </> "SUOMALAINENNIMI"
-      isAllButTvOrOther = contains ["01","02","03","04","06","07","08","10","11"]
+      validCountries :: Maybe [String] -> Result (Maybe [String])
+      validCountries (Just names) | all E.isCountryCode names = pure (Just names)
+      validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
+      validCountries Nothing = pure Nothing
 
-    validCountries :: Maybe [String] -> Result (Maybe [String])
-    validCountries (Just names) | all isCountryCode names = pure (Just names)
-    validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
-    validCountries Nothing = pure Nothing
+    productionCompanies :: Result [String]
+    productionCompanies = pure $ mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent
 
-    fullname :: Xml -> Maybe String
-    fullname xml = do
-      firstname <- Just xml </> "ETUNIMI"
-      lastname <- Just xml </> "SUKUNIMI"
-      return $ firstname ++ " " ++ lastname
+    synopsis = p </> "SYNOPSIS"
+
+    legacyProgramType :: Result E.ProgramType
+    legacyProgramType = case typeAttr of
+      Nothing -> fail
+      (Just "05") -> fail
+      (Just t) -> either (const fail) pure (E.legacyProgramType t) ? "Virheellinen attribuutti TYPE"
+
+    nameFi :: Result (Maybe String)
+    nameFi = case typeAttr of
+      (Just t) -> if isAllButTvOrOther t
+                  then (Just <$> requiredElement p "SUOMALAINENNIMI")
+                  else optional $ p </> "SUOMALAINENNIMI"
+      Nothing -> fail
+        where isAllButTvOrOther = contains ["01","02","03","04","06","07","08","10","11"]
+
+    season :: Result (Maybe String)
+    season = case typeAttr of
+      (Just "03") -> isMaybeFormat onlyNumbers (p </> "TUOTANTOKAUSI")
+                     ? "Virheellinen kenttä: TUOTANTOKAUSI pitää olla numero"
+      _ -> pure Nothing
+
+    episode :: Result (Maybe String)
+    episode = case typeAttr of
+      (Just "03") -> p `requiredElement` "OSA" *> episodeFormat (p </> "OSA")
+      _ -> pure Nothing
+        where
+        episodeFormat Nothing = fail
+        episodeFormat (Just episode) = Just <$> isFormat onlyNumbers episode
+                                       ? "Virheellinen kenttä: OSA pitää olla numero"
+
+    parentTvSeriesName :: Result (Maybe String)
+    parentTvSeriesName = case typeAttr of
+      (Just "03") -> p `requiredElement` "ISANTAOHJELMA" <#> Just
+      _ -> pure Nothing
+
+    legacyGenre :: Result [E.LegacyGenre]
+    legacyGenre = (const (<>))
+      <$> genre E.legacyGenre (p </> "LAJIT") ? "Virheellinen LAJI"
+      <*> genre E.legacyTvGenre (p </> "TELEVISIO-OHJELMALAJIT") ? "Virheellinen TELEVISIO-OHJELMALAJIT"
+      <*> genre E.legacyGameGenre (p </> "PELINLAJIT") ? "Virheellinen PELINLAJIT"
+
+    directors :: Result [String]
+    directors = pure $ mcatMaybes (p </*> "OHJAAJA" <#> fullname)
+
+    actors :: Result [String]
+    actors = pure $ mcatMaybes (p </*> "NAYTTELIJA" <#> fullname)
 
     classification :: Result Classification
-    classification = { duration: _, author: _ }
+    classification = let c = p <//> "LUOKITTELU" in
+      { duration: _, author: _ }
       <$> required (c </> "KESTO")
       <*> p `requiredElement` "LUOKITTELIJA"
-        where c = p <//> "LUOKITTELU"
+
+genre :: (String -> F E.LegacyGenre) -> Maybe String -> Result [E.LegacyGenre]
+genre _ Nothing = pure []
+genre f (Just s) = sequence $ (f' <<< f) <$> split " " s
+  where
+  f' = either fail pure
+    where fail (TypeMismatch _ _) = invalid []
+
+fullname :: Xml -> Maybe String
+fullname xml = do
+  firstname <- Just xml </> "ETUNIMI"
+  lastname <- Just xml </> "SUKUNIMI"
+  return $ firstname ++ " " ++ lastname
 
 isFormat :: forall a. (a -> Boolean) -> a -> Result a
 isFormat f v | f v = pure v
@@ -173,17 +220,6 @@ all f _            = false
 
 contains :: forall a. (Eq a) => [a] -> a -> Boolean
 contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true
-
-toArray :: Maybe String -> [String]
-toArray Nothing = []
-toArray (Just s) = split " " s
-
-lajit :: Maybe String -> Result [LegacyGenre]
-lajit Nothing = pure []
-lajit (Just s) = foldM f [] $ legacyGenre <$> split " " s where
-  f :: [LegacyGenre] -> F LegacyGenre -> Result [LegacyGenre]
-  f xs = either fail $ pure <<< (: xs)
-    where fail (TypeMismatch _ err) = invalid [err]
 
 validateProgram :: Xml -> Result Program
 validateProgram xml = validateProgram' (Just xml)

@@ -48,12 +48,23 @@ instance showLegacyGenre :: Show LegacyGenre where
   show (LegacyGenre s) = "LegacyGenre " ++ s
 
 instance isForeignLegacyGenre :: IsForeign LegacyGenre where
-  read x | isUndefined x = Left $ TypeMismatch "LAJI" "Virheellinen LAJI"
+  read x | isUndefined x = Left $ TypeMismatch "Virheellinen LAJI" "LAJI" 
   read x = pure $ LegacyGenre $ unsafeFromForeign x
 
 legacyGenre :: String -> F LegacyGenre
 legacyGenre = read <<< enumValue "legacyGenres"
 
--- valuesInEnum('LAJIT', enums.legacyGenres),
--- valuesInEnum('TELEVISIO-OHJELMALAJIT', enums.legacyTvGenres),
--- valuesInList('PELINLAJIT', enums.legacyGameGenres)
+legacyTvGenre :: String -> F LegacyGenre
+legacyTvGenre = read <<< enumValue "legacyTvGenres"
+
+foreign import isLegacyGameGenre
+  """
+  var legacyGameGenres = require('shared/enums').legacyGameGenres;
+  function isLegacyGameGenre(val) {
+    return legacyGameGenres.indexOf(val) !== -1;
+  }
+  """ :: String -> Boolean
+
+legacyGameGenre :: String -> F LegacyGenre
+legacyGameGenre s | isLegacyGameGenre s = pure $ LegacyGenre s
+legacyGameGenre _ = Left $ TypeMismatch "Virheellinen PELINLAJI" "undefined" 

@@ -5,6 +5,7 @@
   "keywords": [],
   "dependencies": {
     "purescript-control": "*",
+    "purescript-foldable-traversable": "*",
     "purescript-foreign": "*",
     "purescript-either": "*",
     "purescript-maybe": "*",
