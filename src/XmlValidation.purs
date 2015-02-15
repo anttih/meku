@@ -115,7 +115,7 @@ validateProgram' p = program
   <*> legacyGenre
   <*> directors
   <*> actors
-  <*> (required (p <//> "LUOKITTELU") *> classification)
+  <*> (required (p <//> "LUOKITTELU") *> classification p)
     where
     typeAttr = p </=> "TYPE"
     requiredType = p `requiredAttr` "TYPE"
@@ -174,7 +174,7 @@ validateProgram' p = program
       _ -> pure Nothing
 
     legacyGenre :: Result [E.LegacyGenre]
-    legacyGenre = (const (<>))
+    legacyGenre = const (<>)
       <$> genre E.legacyGenre (p </> "LAJIT") ? "Virheellinen LAJI"
       <*> genre E.legacyTvGenre (p </> "TELEVISIO-OHJELMALAJIT") ? "Virheellinen TELEVISIO-OHJELMALAJIT"
       <*> genre E.legacyGameGenre (p </> "PELINLAJIT") ? "Virheellinen PELINLAJIT"
@@ -185,23 +185,23 @@ validateProgram' p = program
     actors :: Result [String]
     actors = pure $ mcatMaybes (p </*> "NAYTTELIJA" <#> fullname)
 
-    classification :: Result Classification
-    classification = 
-      { duration: _, author: _ , criteria: _}
-      <$> required duration
-      <*> author
-      <*> criteria
-        where
-        duration = p <//> "LUOKITTELU" </> "KESTO"
-        author = p `requiredElement` "LUOKITTELIJA"
+classification :: Maybe Xml -> Result Classification
+classification p =
+  { duration: _, author: _ , criteria: _}
+  <$> required duration
+  <*> author
+  <*> criteria
+    where
+    duration = p <//> "LUOKITTELU" </> "KESTO"
+    author = p `requiredElement` "LUOKITTELIJA"
 
-        criteria :: Result [E.Criteria]
-        criteria = sequence $ criteria' <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI")
-          where
-          criteria' xml = requiredCriteria *> maybe fail (either failMsg pure <<< E.criteria) (Just xml </=> "KRITEERI")
-            where
-            requiredCriteria = Just xml `requiredAttr` "KRITEERI"
-            failMsg (TypeMismatch _ got) = fail ? "Virheellinen KRITEERI: " ++ got
+    criteria :: Result [E.Criteria]
+    criteria = sequence $ criteria' <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI")
+      where
+      criteria' xml = requiredCriteria *> maybe fail (either failMsg pure <<< E.criteria) (Just xml </=> "KRITEERI")
+        where
+        requiredCriteria = Just xml `requiredAttr` "KRITEERI"
+        failMsg (TypeMismatch _ got) = fail ? "Virheellinen KRITEERI: " ++ got
 
 genre :: (String -> F E.LegacyGenre) -> Maybe String -> Result [E.LegacyGenre]
 genre _ Nothing = pure []
