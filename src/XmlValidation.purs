@@ -1,8 +1,6 @@
 module XmlValidation
   ( Result()
   , (?)
-  , Program()
-  , Classification()
   , Message()
   , validateProgram
   ) where
@@ -19,59 +17,15 @@ import Data.Foreign.Class
 import Data.String (split)
 import Data.String.Regex (regex, test)
 import Data.Traversable (sequence)
+import Data.Argonaut.Core (Json(..))
+import Data.Argonaut.Encode (encodeJson)
 import Global (readInt)
 
-import Data.Foreign
-
+import Kavi.Types
 import Kavi.Xml
-import Kavi.Util (all, contains)
 import qualified Kavi.Enums as E
+import Kavi.Util (all, contains)
 
-type Program =
-  { programType :: E.ProgramType
-  , externalId :: String
-  , name :: String
-  , nameFi :: Maybe String
-  , nameSv :: Maybe String
-  , nameOther :: Maybe String
-  , year :: Maybe Number
-  , countries :: Maybe [E.CountryCode]
-  , productionCompanies :: [String]
-  , synopsis :: String
-  , season :: Maybe String
-  , episode :: Maybe String
-  , parentTvSeriesName :: Maybe String
-  , legacyGenre :: [E.LegacyGenre]
-  , directors :: [String]
-  , actors :: [String]
-  , classification :: Classification
-  }
-
-program = 
-  { programType: _
-  , externalId: _
-  , name: _
-  , nameFi: _
-  , nameSv: _
-  , nameOther: _
-  , year: _
-  , countries: _
-  , productionCompanies: _
-  , synopsis: _
-  , season: _
-  , episode: _
-  , parentTvSeriesName: _
-  , legacyGenre: _
-  , directors: _
-  , actors: _
-  , classification: _
-  }
-
-type Classification = 
-  { duration :: String
-  , author :: String
-  , criteria :: [E.Criteria]
-  }
 
 type Message = String
 type Result a = V [Message] a
@@ -98,7 +52,7 @@ requiredElement :: Maybe Xml -> String -> Result String
 requiredElement p field = required (p </> field) ? "Pakollinen elementti " ++ field ++ " puuttuu"
 
 validateProgram' :: Maybe Xml -> Result Program
-validateProgram' p = program
+validateProgram' p = (Program <$>) $ program
   <$> (requiredType *> legacyProgramType)
   <*> externalId
   <*> name
@@ -186,8 +140,7 @@ validateProgram' p = program
     actors = pure $ mcatMaybes (p </*> "NAYTTELIJA" <#> fullname)
 
 classification :: Maybe Xml -> Result Classification
-classification p =
-  { duration: _, author: _ , criteria: _}
+classification p = (Classification <$>) $ { duration: _, author: _ , criteria: _}
   <$> required duration
   <*> author
   <*> criteria
@@ -225,5 +178,5 @@ isMaybeFormat f Nothing = pure Nothing
 onlyNumbers :: String -> Boolean
 onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: false}
 
-validateProgram :: Xml -> Result Program
-validateProgram xml = validateProgram' (Just xml)
+validateProgram :: Xml -> Result Json
+validateProgram xml = encodeJson <$> validateProgram' (Just xml)

@@ -13,6 +13,7 @@
     "purescript-arrays": "*",
     "purescript-strings": "*",
     "purescript-globals": "*",
-    "purescript-monadplus-partial": "0.1.0"
+    "purescript-monadplus-partial": "0.1.0",
+    "purescript-argonaut": "*"
   }
 }
