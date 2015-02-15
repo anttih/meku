@@ -11,7 +11,6 @@ import Control.Alt ((<|>))
 import Control.Apply ((*>))
 import Control.Plus
 import Control.MonadPlus.Partial (mcatMaybes)
-import Data.Array (findIndex)
 import Data.Maybe
 import Data.Validation
 import Data.Either
@@ -25,6 +24,7 @@ import Global (readInt)
 import Data.Foreign
 
 import Kavi.Xml
+import Kavi.Util (all, contains)
 import qualified Kavi.Enums as E
 
 type Program =
@@ -70,6 +70,7 @@ program =
 type Classification = 
   { duration :: String
   , author :: String
+  , criteria :: [E.Criteria]
   }
 
 type Message = String
@@ -185,10 +186,22 @@ validateProgram' p = program
     actors = pure $ mcatMaybes (p </*> "NAYTTELIJA" <#> fullname)
 
     classification :: Result Classification
-    classification = let c = p <//> "LUOKITTELU" in
-      { duration: _, author: _ }
-      <$> required (c </> "KESTO")
-      <*> p `requiredElement` "LUOKITTELIJA"
+    classification = 
+      { duration: _, author: _ , criteria: _}
+      <$> required duration
+      <*> author
+      <*> criteria
+        where
+        duration = p <//> "LUOKITTELU" </> "KESTO"
+        author = p `requiredElement` "LUOKITTELIJA"
+
+        criteria :: Result [E.Criteria]
+        criteria = sequence $ criteria' <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI")
+          where
+          criteria' xml = requiredCriteria *> maybe fail (either failMsg pure <<< E.criteria) (Just xml </=> "KRITEERI")
+            where
+            requiredCriteria = Just xml `requiredAttr` "KRITEERI"
+            failMsg (TypeMismatch _ got) = fail ? "Virheellinen KRITEERI: " ++ got
 
 genre :: (String -> F E.LegacyGenre) -> Maybe String -> Result [E.LegacyGenre]
 genre _ Nothing = pure []
@@ -211,14 +224,6 @@ isMaybeFormat f Nothing = pure Nothing
 
 onlyNumbers :: String -> Boolean
 onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: false}
-
-all :: forall a. (a -> Boolean) -> [a] -> Boolean
-all f []           = true
-all f (x:xs) | f x = all f xs
-all f _            = false
-
-contains :: forall a. (Eq a) => [a] -> a -> Boolean
-contains xs x = if findIndex (\v -> v == x) xs == -1 then false else true
 
 validateProgram :: Xml -> Result Program
 validateProgram xml = validateProgram' (Just xml)

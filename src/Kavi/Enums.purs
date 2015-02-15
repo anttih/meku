@@ -2,16 +2,22 @@ module Kavi.Enums
   ( ProgramType(..)
   , LegacyGenre(..)
   , CountryCode(..)
+  , Criteria(..)
   , legacyProgramType
   , legacyGenre
   , legacyGameGenre
   , legacyTvGenre
   , countryCode
+  , criteria
   ) where
 
 import Data.Foreign
 import Data.Foreign.Class
 import Data.Either
+import Data.Maybe
+import Global (readInt)
+
+import Kavi.Util (contains)
 
 foreign import enumValue
   """
@@ -83,3 +89,20 @@ foreign import isLegacyGameGenre
 legacyGameGenre :: String -> F LegacyGenre
 legacyGameGenre s | isLegacyGameGenre s = pure $ LegacyGenre s
 legacyGameGenre _ = Left $ TypeMismatch "Virheellinen PELINLAJI" "undefined" 
+
+newtype Criteria = Criteria Number
+
+foreign import validCriteria
+  """
+  var criteria = require('shared/enums').classificationCriteria;
+  var validCriteria = criteria.map(function(x) {
+    return x.id
+  });
+  """ :: [Number]
+
+criteria :: String -> F Criteria
+criteria c = let num = readInt 10 c in
+  if contains validCriteria num
+  then pure $ Criteria num
+  else Left $ TypeMismatch "criteria" c
+
