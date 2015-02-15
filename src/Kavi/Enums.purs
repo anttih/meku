@@ -1,11 +1,12 @@
 module Kavi.Enums
   ( ProgramType(..)
   , LegacyGenre(..)
+  , CountryCode(..)
   , legacyProgramType
   , legacyGenre
   , legacyGameGenre
   , legacyTvGenre
-  , isCountryCode
+  , countryCode
   ) where
 
 import Data.Foreign
@@ -42,6 +43,8 @@ instance showLegacyProgramType :: Show ProgramType where
 legacyProgramType :: String -> F ProgramType
 legacyProgramType = read <<< enumValue "legacyProgramTypes"
 
+newtype CountryCode = CountryCode String
+
 foreign import isCountryCode
   """
   var countries = require('shared/enums').countries;
@@ -49,6 +52,10 @@ foreign import isCountryCode
     return countries[code] !== undefined;
   }
   """ :: String -> Boolean
+
+countryCode :: String -> F CountryCode
+countryCode s | isCountryCode s = pure $ CountryCode s
+countryCode s = Left $ TypeMismatch "maakoodi" s
 
 newtype LegacyGenre = LegacyGenre String
 

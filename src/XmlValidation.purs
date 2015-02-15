@@ -35,7 +35,7 @@ type Program =
   , nameSv :: Maybe String
   , nameOther :: Maybe String
   , year :: Maybe Number
-  , countries :: Maybe [String]
+  , countries :: Maybe [E.CountryCode]
   , productionCompanies :: [String]
   , synopsis :: String
   , season :: Maybe String
@@ -126,10 +126,12 @@ validateProgram' p = program
 
     countries = validCountries (p </> "MAAT" <#> split " ")
       where
-      validCountries :: Maybe [String] -> Result (Maybe [String])
-      validCountries (Just names) | all E.isCountryCode names = pure (Just names)
-      validCountries (Just _) = invalid ["Virheellinen kenttä: MAAT"]
+      validCountries :: Maybe [String] -> Result (Maybe [E.CountryCode])
       validCountries Nothing = pure Nothing
+      validCountries (Just xs) = Just <$> (sequence $ either fail' pure <<< E.countryCode <$> xs)
+        where
+        fail' (TypeMismatch _ got) = fail ? "Virheellinen arvo MAAT kentässä: " ++ got
+        fail' _ = fail
 
     productionCompanies :: Result [String]
     productionCompanies = pure $ mcatMaybes $ p </*> "TUOTANTOYHTIO" <#> textContent
