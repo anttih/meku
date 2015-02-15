@@ -89,10 +89,3 @@ infixl 5 <//>
 
 textContent :: Xml -> Maybe String
 textContent xml = either (const Nothing) Just $ read (textContent' xml)
-
-foreign import testDoc
-  """
-  var testDoc = {
-    "JULKAISUVUOSI": {$text: "2007"}
-  };
-  """ :: Xml
