@@ -5,7 +5,7 @@ module Kavi.Types
   where
 
 import Data.Maybe
-import Data.Argonaut ((~>), (:=), jsonEmptyObject, fromNumber)
+import Data.Argonaut ((~>), (:=), jsonEmptyObject, fromNumber, fromString)
 import Data.Argonaut.Encode (EncodeJson)
 
 import qualified Kavi.Enums as E
@@ -38,17 +38,33 @@ newtype Classification = Classification
 
 instance encodeProgram :: EncodeJson Program where
   encodeJson (Program p)
-    = "externalId" := p.externalId
+    = "programType" := p.programType
+    ~> "externalId" := p.externalId
+    ~> "name" := p.name
     ~> "nameFi" := p.nameFi
     ~> "nameSv" := p.nameSv
     ~> "nameOther" := p.nameOther
     ~> "year" := p.year
+    ~> "countries" := p.countries
+    ~> "productionCompanies" := p.productionCompanies
     ~> "synopsis" := p.synopsis
     ~> "season" := p.season
     ~> "episode" := p.episode
     ~> "parentTvSeriesName" := p.parentTvSeriesName
+    ~> "legacyGenre" := p.legacyGenre
+    ~> "directors" := p.directors
+    ~> "actors" := p.actors
     ~> "classification" := p.classification
     ~> jsonEmptyObject
+
+instance encodeProgramType :: EncodeJson E.ProgramType where
+  encodeJson (E.ProgramType x) = fromNumber x
+
+instance encodeCountryCode :: EncodeJson E.CountryCode where
+  encodeJson (E.CountryCode s) = fromString s
+
+instance encodeLegacyGenres :: EncodeJson E.LegacyGenre where
+  encodeJson (E.LegacyGenre s) = fromString s
 
 instance encodeClassification :: EncodeJson Classification where
   encodeJson (Classification c)
