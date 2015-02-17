@@ -1,4 +1,4 @@
-module XmlValidation
+module Kavi.XmlValidation
   ( Result()
   , (?)
   , Message()
