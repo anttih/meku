@@ -38,13 +38,6 @@ newtype Classification = Classification
   , comments :: StrMap String
   }
 
-instance eqCriteria :: Eq E.Criteria where
-  (==) (E.Criteria x) (E.Criteria y) = x == y
-  (/=) (E.Criteria x) (E.Criteria y) = x /= y
-
-instance ordCriteria :: Ord E.Criteria where
-  compare (E.Criteria x) (E.Criteria y) = x `compare` y
-
 instance encodeProgram :: EncodeJson Program where
   encodeJson (Program p)
     = "programType" := p.programType
