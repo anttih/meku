@@ -1,5 +1,5 @@
 var xml = require('xml-object-stream'),
-    validateProgram = require('XmlValidation').validateProgram
+    validateProgram = require('Kavi.XmlValidation').validateProgram
 
 exports.readPrograms = function (body, callback) {
   var stream = xml.parse(body)

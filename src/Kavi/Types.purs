@@ -7,6 +7,7 @@ module Kavi.Types
 import Data.Maybe
 import Data.Argonaut ((~>), (:=), jsonEmptyObject, fromNumber, fromString)
 import Data.Argonaut.Encode (EncodeJson)
+import Data.Map (Map(..))
 
 import qualified Kavi.Enums as E
 
@@ -34,7 +35,15 @@ newtype Classification = Classification
   { duration :: String
   , author :: String
   , criteria :: [E.Criteria]
+  , comments :: Map E.Criteria String
   }
+
+instance eqCriteria :: Eq E.Criteria where
+  (==) (E.Criteria x) (E.Criteria y) = x == y
+  (/=) (E.Criteria x) (E.Criteria y) = x /= y
+
+instance ordCriteria :: Ord E.Criteria where
+  compare (E.Criteria x) (E.Criteria y) = x `compare` y
 
 instance encodeProgram :: EncodeJson Program where
   encodeJson (Program p)
@@ -71,6 +80,7 @@ instance encodeClassification :: EncodeJson Classification where
     = "duration" := c.duration
     ~> "author" := c.author
     ~> "criteria" := c.criteria
+    ~> "comments" := c.comments
     ~> jsonEmptyObject
 
 instance encodeCriteria :: EncodeJson E.Criteria where

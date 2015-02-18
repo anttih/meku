@@ -10,12 +10,14 @@ import Control.Apply ((*>))
 import Control.Plus
 import Control.MonadPlus.Partial (mcatMaybes)
 import Data.Maybe
+import qualified Data.Map as M
 import Data.Validation
 import Data.Either
 import Data.Foreign
 import Data.Foreign.Class
 import Data.String (split)
 import Data.String.Regex (regex, test)
+import qualified Data.Tuple as T
 import Data.Traversable (sequence)
 import Data.Argonaut.Core (Json(..))
 import Data.Argonaut.Encode (encodeJson)
@@ -44,6 +46,9 @@ fail = invalid []
 infixr 5 ?
 (?) :: forall a. Result a -> Message -> Result a
 (?) res msg = runV (\_ -> invalid [msg]) pure res
+
+ok :: forall a. a -> Result a -> Result a
+ok default = runV (const $ pure default) pure
 
 requiredAttr :: forall a. Maybe Xml -> String -> Result String
 requiredAttr xml name = required (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
@@ -140,10 +145,13 @@ validateProgram' p = (Program <$>) $ program
     actors = pure $ mcatMaybes (p </*> "NAYTTELIJA" <#> fullname)
 
 classification :: Maybe Xml -> Result Classification
-classification p = (Classification <$>) $ { duration: _, author: _ , criteria: _}
+classification p =
+  { duration: _, author: _ , criteria: _, comments: _}
   <$> required duration
   <*> author
   <*> criteria
+  <*> comments
+  <#> Classification
     where
     duration = p <//> "LUOKITTELU" </> "KESTO"
     author = p `requiredElement` "LUOKITTELIJA"
@@ -151,10 +159,20 @@ classification p = (Classification <$>) $ { duration: _, author: _ , criteria: _
     criteria :: Result [E.Criteria]
     criteria = sequence $ criteria' <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI")
       where
-      criteria' xml = requiredCriteria *> maybe fail (either failMsg pure <<< E.criteria) (Just xml </=> "KRITEERI")
+      criteria' xml = requiredCriteria *> maybe fail readCriteria (Just xml </=> "KRITEERI")
         where
         requiredCriteria = Just xml `requiredAttr` "KRITEERI"
+        readCriteria = either failMsg pure <<< E.criteria
         failMsg (TypeMismatch _ got) = fail ? "Virheellinen KRITEERI: " ++ got
+
+    comments :: Result (M.Map E.Criteria String)
+    comments = pure $ M.fromList $ mcatMaybes (comment <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI"))
+      where
+      comment :: Xml -> Maybe (T.Tuple E.Criteria String)
+      comment xml = T.Tuple
+        <$> (Just xml </=> "KRITEERI" >>= either (const Nothing) Just <<< E.criteria)
+        <*> Just xml </=> "KOMMENTTI"
+
 
 genre :: (String -> F E.LegacyGenre) -> Maybe String -> Result [E.LegacyGenre]
 genre _ Nothing = pure []

@@ -4,16 +4,18 @@
   "version": "0.1.0",
   "keywords": [],
   "dependencies": {
+    "purescript-argonaut": "*",
+    "purescript-arrays": "*",
     "purescript-control": "*",
+    "purescript-either": "*",
     "purescript-foldable-traversable": "*",
     "purescript-foreign": "*",
-    "purescript-either": "*",
-    "purescript-maybe": "*",
-    "purescript-validation": "*",
-    "purescript-arrays": "*",
-    "purescript-strings": "*",
     "purescript-globals": "*",
+    "purescript-maps": "*",
+    "purescript-maybe": "*",
     "purescript-monadplus-partial": "0.1.0",
-    "purescript-argonaut": "*"
+    "purescript-tuples": "*",
+    "purescript-strings": "*",
+    "purescript-validation": "*"
   }
 }
