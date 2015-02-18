@@ -7,7 +7,7 @@ module Kavi.Types
 import Data.Maybe
 import Data.Argonaut ((~>), (:=), jsonEmptyObject, fromNumber, fromString)
 import Data.Argonaut.Encode (EncodeJson)
-import Data.Map (Map(..))
+import Data.StrMap (StrMap(..))
 
 import qualified Kavi.Enums as E
 
@@ -35,7 +35,7 @@ newtype Classification = Classification
   { duration :: String
   , author :: String
   , criteria :: [E.Criteria]
-  , comments :: Map E.Criteria String
+  , comments :: StrMap String
   }
 
 instance eqCriteria :: Eq E.Criteria where

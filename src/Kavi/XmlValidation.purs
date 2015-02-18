@@ -10,7 +10,7 @@ import Control.Apply ((*>))
 import Control.Plus
 import Control.MonadPlus.Partial (mcatMaybes)
 import Data.Maybe
-import qualified Data.Map as M
+import qualified Data.StrMap as M
 import Data.Validation
 import Data.Either
 import Data.Foreign
@@ -165,13 +165,12 @@ classification p =
         readCriteria = either failMsg pure <<< E.criteria
         failMsg (TypeMismatch _ got) = fail ? "Virheellinen KRITEERI: " ++ got
 
-    comments :: Result (M.Map E.Criteria String)
+    comments :: Result (M.StrMap String)
     comments = pure $ M.fromList $ mcatMaybes (comment <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI"))
       where
-      comment :: Xml -> Maybe (T.Tuple E.Criteria String)
-      comment xml = T.Tuple
-        <$> (Just xml </=> "KRITEERI" >>= either (const Nothing) Just <<< E.criteria)
-        <*> Just xml </=> "KOMMENTTI"
+      comment :: Xml -> Maybe (T.Tuple String String)
+      comment xml = let doc = Just xml
+        in T.Tuple <$> doc </=> "KRITEERI" <*> doc </=> "KOMMENTTI"
 
 
 genre :: (String -> F E.LegacyGenre) -> Maybe String -> Result [E.LegacyGenre]
