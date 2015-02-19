@@ -1081,7 +1081,7 @@ app.post('/xml/v1/programs/:token', authenticateXmlApi, function(req, res, next)
       writeError('Yhtään kuvaohjelmaa ei voitu lukea', root)
       return res.send(root.end({ pretty: true, indent: '  ', newline: '\n' }))
     }
-    console.log(programs[0].value0)
+    console.log(programs[0])
     res.send(200, {})
 
     //async.eachSeries(programs, handleXmlProgram, function(err) {

@@ -1,7 +1,5 @@
 module Kavi.XmlValidation
-  ( Result()
-  , (?)
-  , Message()
+  ( (?)
   , validateProgram
   ) where
 
@@ -28,9 +26,6 @@ import Kavi.Xml
 import qualified Kavi.Enums as E
 import Kavi.Util (all, contains)
 
-
-type Message = String
-type Result a = V [Message] a
 
 required :: forall a. Maybe a -> Result a
 required Nothing  = invalid []
@@ -195,5 +190,5 @@ isMaybeFormat f Nothing = pure Nothing
 onlyNumbers :: String -> Boolean
 onlyNumbers = test $ regex "^\\d+$" {unicode: false, sticky: false, multiline: false, ignoreCase: false, global: false}
 
-validateProgram :: Xml -> Result Json
-validateProgram xml = encodeJson <$> validateProgram' (Just xml)
+validateProgram :: Xml -> Json
+validateProgram xml = encodeJson $ validateProgram' (Just xml)

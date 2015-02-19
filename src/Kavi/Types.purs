@@ -1,15 +1,27 @@
 module Kavi.Types
   ( Program(..)
   , Classification(..)
+  , Result()
+  , Message()
   , program)
   where
 
 import Data.Maybe
-import Data.Argonaut ((~>), (:=), jsonEmptyObject, fromNumber, fromString)
+import Data.Argonaut ((~>), (:=), jsonEmptyObject, jsonEmptyArray, fromNumber, fromString)
 import Data.Argonaut.Encode (EncodeJson)
 import Data.StrMap (StrMap(..))
+import Data.Validation
 
 import qualified Kavi.Enums as E
+
+type Message = String
+type Result a = V [Message] a
+
+instance encodeV :: EncodeJson (V [String] Program) where
+  encodeJson = runV errors res
+    where
+    errors xs = "errors" := xs ~> "program" := jsonEmptyObject ~> jsonEmptyObject
+    res p = "errors" := jsonEmptyArray ~> "program" := p ~> jsonEmptyObject
 
 newtype Program = Program
   { programType :: E.ProgramType
