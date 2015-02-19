@@ -53,26 +53,26 @@ requiredElement p field = required (p </> field) ? "Pakollinen elementti " ++ fi
 
 validateProgram' :: Maybe Xml -> Result Program
 validateProgram' p = (Program <$>) $ program
-  <$> (requiredType *> legacyProgramType)
+  <$> (p `requiredAttr` "TYPE" *> legacyProgramType)
   <*> externalId
   <*> name
-  <*> (requiredType *> nameFi)
+  <*> (requireType *> nameFi)
   <*> optional nameSv
   <*> optional nameOther
   <*> optional year
   <*> countries
   <*> productionCompanies
   <*> required synopsis
-  <*> (requiredType *> season)
-  <*> (requiredType *> episode)
-  <*> (requiredType *> parentTvSeriesName)
+  <*> (requireType *> season)
+  <*> (requireType *> episode)
+  <*> (requireType *> parentTvSeriesName)
   <*> legacyGenre
   <*> directors
   <*> actors
   <*> (required (p <//> "LUOKITTELU") *> classification p)
     where
     typeAttr = p </=> "TYPE"
-    requiredType = p `requiredAttr` "TYPE"
+    requireType = required typeAttr
     externalId = p `requiredElement` "ASIAKKAANTUNNISTE"
     name = p `requiredElement` "ALKUPERAINENNIMI"
     nameSv = p </> "RUOTSALAINENNIMI"
