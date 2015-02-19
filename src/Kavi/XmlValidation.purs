@@ -27,9 +27,9 @@ import qualified Kavi.Enums as E
 import Kavi.Util (all, contains)
 
 
-required :: forall a. Maybe a -> Result a
-required Nothing  = invalid []
-required (Just v) = pure v
+require :: forall a. Maybe a -> Result a
+require Nothing  = invalid []
+require (Just v) = pure v
 
 optional :: forall a. Maybe a -> Result (Maybe a)
 optional = pure
@@ -45,15 +45,15 @@ infixr 5 ?
 ok :: forall a. a -> Result a -> Result a
 ok default = runV (const $ pure default) pure
 
-requiredAttr :: forall a. Maybe Xml -> String -> Result String
-requiredAttr xml name = required (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
+requireAttr :: forall a. Maybe Xml -> String -> Result String
+requireAttr xml name = require (xml </=> name) ? "Pakollinen attribuutti " ++ name ++ " puuttuu."
 
-requiredElement :: Maybe Xml -> String -> Result String
-requiredElement p field = required (p </> field) ? "Pakollinen elementti " ++ field ++ " puuttuu"
+requireElement :: Maybe Xml -> String -> Result String
+requireElement p field = require (p </> field) ? "Pakollinen elementti " ++ field ++ " puuttuu"
 
 validateProgram' :: Maybe Xml -> Result Program
 validateProgram' p = (Program <$>) $ program
-  <$> (p `requiredAttr` "TYPE" *> legacyProgramType)
+  <$> (p `requireAttr` "TYPE" *> legacyProgramType)
   <*> externalId
   <*> name
   <*> (requireType *> nameFi)
@@ -62,19 +62,19 @@ validateProgram' p = (Program <$>) $ program
   <*> optional year
   <*> countries
   <*> productionCompanies
-  <*> required synopsis
+  <*> require synopsis
   <*> (requireType *> season)
   <*> (requireType *> episode)
   <*> (requireType *> parentTvSeriesName)
   <*> legacyGenre
   <*> directors
   <*> actors
-  <*> (required (p <//> "LUOKITTELU") *> classification p)
+  <*> (require (p <//> "LUOKITTELU") *> classification p)
     where
     typeAttr = p </=> "TYPE"
-    requireType = required typeAttr
-    externalId = p `requiredElement` "ASIAKKAANTUNNISTE"
-    name = p `requiredElement` "ALKUPERAINENNIMI"
+    requireType = require typeAttr
+    externalId = p `requireElement` "ASIAKKAANTUNNISTE"
+    name = p `requireElement` "ALKUPERAINENNIMI"
     nameSv = p </> "RUOTSALAINENNIMI"
     nameOther = p </> "MUUNIMI"
     year = (p </> "JULKAISUVUOSI") <|> (p </> "VALMISTUMISVUOSI") <#> readInt 10
@@ -102,7 +102,7 @@ validateProgram' p = (Program <$>) $ program
     nameFi :: Result (Maybe String)
     nameFi = case typeAttr of
       (Just t) -> if isAllButTvOrOther t
-                  then (Just <$> requiredElement p "SUOMALAINENNIMI")
+                  then (Just <$> requireElement p "SUOMALAINENNIMI")
                   else optional $ p </> "SUOMALAINENNIMI"
       Nothing -> fail
         where isAllButTvOrOther = contains ["01","02","03","04","06","07","08","10","11"]
@@ -115,7 +115,7 @@ validateProgram' p = (Program <$>) $ program
 
     episode :: Result (Maybe String)
     episode = case typeAttr of
-      (Just "03") -> p `requiredElement` "OSA" *> episodeFormat (p </> "OSA")
+      (Just "03") -> p `requireElement` "OSA" *> episodeFormat (p </> "OSA")
       _ -> pure Nothing
         where
         episodeFormat Nothing = fail
@@ -124,7 +124,7 @@ validateProgram' p = (Program <$>) $ program
 
     parentTvSeriesName :: Result (Maybe String)
     parentTvSeriesName = case typeAttr of
-      (Just "03") -> p `requiredElement` "ISANTAOHJELMA" <#> Just
+      (Just "03") -> p `requireElement` "ISANTAOHJELMA" <#> Just
       _ -> pure Nothing
 
     legacyGenre :: Result [E.LegacyGenre]
@@ -142,21 +142,21 @@ validateProgram' p = (Program <$>) $ program
 classification :: Maybe Xml -> Result Classification
 classification p =
   { duration: _, author: _ , criteria: _, comments: _}
-  <$> required duration
+  <$> require duration
   <*> author
   <*> criteria
   <*> comments
   <#> Classification
     where
     duration = p <//> "LUOKITTELU" </> "KESTO"
-    author = p `requiredElement` "LUOKITTELIJA"
+    author = p `requireElement` "LUOKITTELIJA"
 
     criteria :: Result [E.Criteria]
     criteria = sequence $ criteria' <$> (p <//> "LUOKITTELU" </*> "VALITTUTERMI")
       where
       criteria' xml = requiredCriteria *> maybe fail readCriteria (Just xml </=> "KRITEERI")
         where
-        requiredCriteria = Just xml `requiredAttr` "KRITEERI"
+        requiredCriteria = Just xml `requireAttr` "KRITEERI"
         readCriteria = either failMsg pure <<< E.criteria
         failMsg (TypeMismatch _ got) = fail ? "Virheellinen KRITEERI: " ++ got
 
