@@ -17,7 +17,7 @@ var enums = require('../shared/enums')
 var utils = require('../shared/utils')
 var proe = require('../shared/proe')
 var classificationUtils = require('../shared/classification-utils')
-var xml = require('./xml-import-new')
+var xml = require('./xml-import')
 var sendgrid  = require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD)
 var builder = require('xmlbuilder')
 var bcrypt = require('bcrypt')
@@ -1081,17 +1081,15 @@ app.post('/xml/v1/programs/:token', authenticateXmlApi, function(req, res, next)
       writeError('Yhtään kuvaohjelmaa ei voitu lukea', root)
       return res.send(root.end({ pretty: true, indent: '  ', newline: '\n' }))
     }
-    console.log(programs[0])
-    res.send(200, {})
 
-    //async.eachSeries(programs, handleXmlProgram, function(err) {
-    //  if (err) {
-    //    writeError('Järjestelmävirhe: ' + err, root)
-    //    console.error(err)
-    //  }
-    //  res.set('Content-Type', 'application/xml');
-    //  res.send(err ? 500 : 200, root.end({ pretty: true, indent: '  ', newline: '\n' }))
-    //})
+    async.eachSeries(programs, handleXmlProgram, function(err) {
+      if (err) {
+        writeError('Järjestelmävirhe: ' + err, root)
+        console.error(err)
+      }
+      res.set('Content-Type', 'application/xml');
+      res.send(err ? 500 : 200, root.end({ pretty: true, indent: '  ', newline: '\n' }))
+    })
   })
 
   function writeError(err, parent) {
