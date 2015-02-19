@@ -40,7 +40,7 @@ fail = invalid []
 -- | Replaces all accumulated errors with one error
 infixr 5 ?
 (?) :: forall a. Result a -> Message -> Result a
-(?) res msg = runV (\_ -> invalid [msg]) pure res
+(?) res msg = runV (const invalid [msg]) pure res
 
 ok :: forall a. a -> Result a -> Result a
 ok default = runV (const $ pure default) pure
